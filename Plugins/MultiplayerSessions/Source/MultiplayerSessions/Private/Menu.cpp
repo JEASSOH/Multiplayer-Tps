@@ -9,18 +9,18 @@
 
 void UMenu::MenuSetup(int32 NumberOfPublicConnections, FString TypeOfMatch, FString LobbyPath)
 {
-	PathToLobby = FString::Printf(TEXT("%s?listen"), *LobbyPath);
+	PathToLobby = FString::Printf(TEXT("%s?listen"), *LobbyPath);//로비
 	NumPublicConnections = NumberOfPublicConnections;
 	MatchType = TypeOfMatch;
 	AddToViewport();
 	SetVisibility(ESlateVisibility::Visible);
 	bIsFocusable = true;
 
-	UWorld* World = GetWorld();
+	UWorld* World = GetWorld(); // 맵 저장
 	if (World)
 	{
 		APlayerController* PlayerController = World->GetFirstPlayerController();
-		if (PlayerController)
+		if (PlayerController)//플레이어 컨트롤 저장
 		{
 			FInputModeUIOnly InputModeData;
 			InputModeData.SetWidgetToFocus(TakeWidget());
@@ -38,6 +38,7 @@ void UMenu::MenuSetup(int32 NumberOfPublicConnections, FString TypeOfMatch, FStr
 
 	if (MultiplayerSessionsSubsystem)
 	{
+		//서버 세션이 정상적으로 실행되는지 확인하는 곳
 		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &ThisClass::OnCreateSession);
 		MultiplayerSessionsSubsystem->MultiplayerOnFindSessionsComplete.AddUObject(this, &ThisClass::OnFindSessions);
 		MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSession);
@@ -73,12 +74,12 @@ void UMenu::OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld)
 
 void UMenu::OnCreateSession(bool bWasSuccessful)
 {
-	if (bWasSuccessful)
+	if (bWasSuccessful)//성공적으로 세션이 작동된다면
 	{
 		UWorld* World = GetWorld();
 		if (World)
 		{
-			World->ServerTravel(PathToLobby);
+			World->ServerTravel(PathToLobby);//로비 경로 반환
 		}
 	}
 	else

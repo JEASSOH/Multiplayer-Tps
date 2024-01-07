@@ -11,6 +11,7 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete)),
 	DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete)),
 	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete))
+
 {
 	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
 	if (Subsystem)
@@ -18,14 +19,15 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 		SessionInterface = Subsystem->GetSessionInterface();
 	}
 }
-
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FString MatchType)
 {
+	// 세션 인터페이스가 유효한지 확인합니다.
 	if (!SessionInterface.IsValid())
 	{
 		return;
 	}
 
+	// 이미 세션이 존재하면 세션을 제거하고 새로 생성할 준비
 	auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
 	if (ExistingSession != nullptr)
 	{
@@ -36,9 +38,10 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FS
 		DestroySession();
 	}
 
-	// Store the delegate in a FDelegateHandle so we can later remove it from the delegate list
+	// 세션 생성 완료 시의 콜백을 바인딩하기 위해 DelegateHandle을 저장
 	CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegate);
 
+	// 세션 설정 객체를 생성하고 원하는 세션 설정을 구성
 	LastSessionSettings = MakeShareable(new FOnlineSessionSettings());
 	LastSessionSettings->bIsLANMatch = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
 	LastSessionSettings->NumPublicConnections = NumPublicConnections;
@@ -50,15 +53,59 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FS
 	LastSessionSettings->BuildUniqueId = 1;
 	LastSessionSettings->bUseLobbiesIfAvailable = true;
 
+
+	// 로컬 플레이어를 통해 세션을 생성
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+
 	if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *LastSessionSettings))
 	{
 		SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 
-		// Broadcast our own custom delegate
+		// 세션 생성 완료를 알리기 위해 커스텀 델리게이트를 브로드캐스트
 		MultiplayerOnCreateSessionComplete.Broadcast(false);
 	}
 }
+
+//void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FString MatchType)
+//{
+//	if (!SessionInterface.IsValid())
+//	{	
+//		return;
+//	}
+//
+//	auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
+//	if (ExistingSession != nullptr)
+//	{
+//		bCreateSessionOnDestroy = true;
+//		LastNumPublicConnections = NumPublicConnections;
+//		LastMatchType = MatchType;
+//
+//		DestroySession();
+//	}
+//
+//	// Store the delegate in a FDelegateHandle so we can later remove it from the delegate list
+//	CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegate);
+//
+//	LastSessionSettings = MakeShareable(new FOnlineSessionSettings());
+//	LastSessionSettings->bIsLANMatch = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
+//	LastSessionSettings->NumPublicConnections = NumPublicConnections;
+//	LastSessionSettings->bAllowJoinInProgress = true;
+//	LastSessionSettings->bAllowJoinViaPresence = true;
+//	LastSessionSettings->bShouldAdvertise = true;
+//	LastSessionSettings->bUsesPresence = true;
+//	LastSessionSettings->Set(FName("MatchType"), MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+//	LastSessionSettings->BuildUniqueId = 1;
+//	LastSessionSettings->bUseLobbiesIfAvailable = true;
+//
+//	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+//	if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *LastSessionSettings))
+//	{
+//		SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
+//
+//		// Broadcast our own custom delegate
+//		MultiplayerOnCreateSessionComplete.Broadcast(false);
+//	}
+//}
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 {
@@ -68,12 +115,13 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 	}
 
 	FindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegate);
-
+	// 세션 검색 설정 객체를 생성하고 원하는 검색 설정을 구성
 	LastSessionSearch = MakeShareable(new FOnlineSessionSearch());
 	LastSessionSearch->MaxSearchResults = MaxSearchResults;
 	LastSessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
 	LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
-
+	
+	// 로컬 플레이어를 통해 세션을 검색
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!SessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), LastSessionSearch.ToSharedRef()))
 	{
@@ -92,7 +140,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 	}
 
 	JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
-
+	// 로컬 플레이어를 통해 세션에 참여
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!SessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, SessionResult))
 	{
